@@ -1,0 +1,21 @@
+{
+  "type": "module",
+  "scripts": {
+    "prebuild": "rm -rf dist",
+    "build": "tsc -p tsconfig.json",
+    "bundle": "rollup -c rollup.config.js --compact",
+    "package": "tsc -p tsconfig.json && mkdir -p dist/third_party && cp -r third_party/* dist/third_party/ && rollup -c rollup.config.js --compact  && cp -r dist/bundle/* demo/assets/js "
+  },
+  "dependencies": {
+    "@sqlite.org/sqlite-wasm": "^3.41.2-build11"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^24.0.1",
+    "@rollup/plugin-json": "^6.0.0",
+    "@rollup/plugin-node-resolve": "^15.0.1",
+    "rollup": "^3.16.0",
+    "rollup-plugin-cleanup": "^3.2.1",
+    "rollup-plugin-ignore": "^1.0.10",
+    "rollup-plugin-typescript2": "^0.34.1"
+  }
+}
