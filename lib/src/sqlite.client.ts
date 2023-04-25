@@ -1,52 +1,61 @@
 import {ExecuteSqlMessage} from "./messages/execute-sql.message";
-import {SqliteMessageSerializer} from "./serializer/sqlite-message.serializer";
 import {CreateDatabaseMessage} from "./messages/create-database.message";
+import {SqliteMessageInterface} from "./interfaces/sqlite-message.interface";
+import {SqliteMessageTypeEnum} from "./enums/sqlite-message-type.enum";
+import {ExecuteSqlResultMessage} from "./messages/execute-sql-result.message";
 
 export class SqliteClient {
-  private executeSqlPromises: {[hash in string]: Promise<any>} = {}
+  private queuedPromises: {[hash in string]: {resolve: (...args) => void, reject: (...args) => void}} = {}
 
   private worker: Worker;
 
   constructor(private readonly filename: string, private sqliteWorkerPath: string) {
-    // Instantiate the worker
+  }
 
-    this.worker = new Worker("assets/js/sqlite.worker.js", {
+  public init() {
+    this.worker = new Worker(this.sqliteWorkerPath, {
       type: "module", // You need module for the '@sqlite.org/sqlite-wasm' library.
     })
-    this.worker.onmessage = this.messageReceived;
-    this.worker.postMessage(new CreateDatabaseMessage(filename));
+    this.worker.onmessage = this.messageReceived.bind(this);
+
+    const createDatabaseMessage = new CreateDatabaseMessage(this.filename);
+    this.worker.postMessage(createDatabaseMessage);
+
+    return new Promise<any>( (resolve, reject) => {
+      this.queuedPromises[createDatabaseMessage.uniqueId] =  {
+        resolve,
+        reject,
+      };
+    });
   }
 
   messageReceived(message: MessageEvent) {
-    console.log(message.data);
+    const sqliteMessage = message.data as SqliteMessageInterface;
+    if(sqliteMessage.uniqueId !== undefined && this.queuedPromises.hasOwnProperty(sqliteMessage.uniqueId)) {
+      const promise = this.queuedPromises[sqliteMessage.uniqueId];
+      delete this.queuedPromises[sqliteMessage.uniqueId];
+
+      switch (sqliteMessage.type) {
+        case SqliteMessageTypeEnum.ExecuteSqlResult:
+          return promise.resolve( (sqliteMessage as ExecuteSqlResultMessage).result);
+        case SqliteMessageTypeEnum.CreateDatabaseResult:
+          return promise.resolve();
+      }
+    }
   }
 
-  /**
-   *
-   * @param sqlStatement
-   * @param bindParameters
-   *
-   * returns the hash
-   * @param promise
-   */
-  hashAndQueueExecuteSqlCommand(sqlStatement: string, bindParameters: string[]): string {
-    // todo: there's a very small possibility of a collision but also, this can potentially slow down things.
-    return crypto.randomUUID();
-  }
 
   executeSql(sqlStatement: string, bindParameters: string[] = []): Promise<any> {
-    const uniqueId = this.hashAndQueueExecuteSqlCommand(sqlStatement, bindParameters);
-    const executeSqlMessage = new ExecuteSqlMessage(uniqueId, sqlStatement, bindParameters);
+    const executeSqlMessage = new ExecuteSqlMessage(sqlStatement, bindParameters);
 
     this.worker.postMessage(executeSqlMessage);
 
-
-
-    const result = new Promise<any>(resolve => {});
-
-
-
-    return result;
+    return new Promise<any>( (resolve, reject) => {
+      this.queuedPromises[executeSqlMessage.uniqueId] =  {
+        resolve,
+        reject,
+      };
+    });
   }
 }
 

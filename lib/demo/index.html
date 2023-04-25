@@ -6,7 +6,11 @@
   <script type="module">
     import {SqliteClient} from "./assets/js/sqlite.client.js";
 
-    const sqliteClient = new SqliteClient("./test")
+    const sqliteClient = new SqliteClient("./test", "assets/js/sqlite-worker.js")
+    await sqliteClient.init();
+    await sqliteClient.executeSql("INSERT INTO test VALUES(?, ?)", [6,7]);
+    await sqliteClient.executeSql("SELECT * FROM test");
+
   </script>
 </head>
 

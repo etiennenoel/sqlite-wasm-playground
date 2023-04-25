@@ -4,6 +4,6 @@ import {SqliteMessageTypeEnum} from "../enums/sqlite-message-type.enum";
 export class CreateDatabaseResultMessage implements SqliteMessageInterface {
   type: SqliteMessageTypeEnum = SqliteMessageTypeEnum.CreateDatabaseResult;
 
-  constructor() {
+  constructor(public readonly uniqueId: string) {
   }
 }
